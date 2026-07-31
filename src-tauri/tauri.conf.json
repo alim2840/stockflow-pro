@@ -19,6 +19,7 @@
     "publisher": "Mindtune Innovations",
     "copyright": "© 2026 Mindtune Innovations · Developed by Muhammad Ali, Accounts & Finance Expert, MBA (Finance) · alim2840@gmail.com",
     "category": "Business",
+    "licenseFile": "../release/LICENSE.txt",
     "shortDescription": "Premium Inventory and Project Management System",
     "longDescription": "StockFlow Pro — Premium Inventory and Project Management System. Published by Mindtune Innovations. Developed by Muhammad Ali, Accounts & Finance Expert, MBA (Finance). Support: alim2840@gmail.com",
     "icon": [
@@ -38,7 +39,6 @@
         "installMode": "both",
         "languages": ["English"],
         "displayLanguageSelector": false,
-        "license": "../release/LICENSE.txt",
         "startMenuFolder": "StockFlow Pro"
       },
       "wix": {
