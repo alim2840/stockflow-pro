@@ -1,13 +1,31 @@
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/primitives';
 import { ModuleScaffold } from '@/components/module-scaffold';
-import { Info, Mail } from 'lucide-react';
+import { Info, Mail, KeyRound } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default function Page() {
   return (
     <div className="space-y-6">
+      {/* Self-service account & password */}
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-md bg-primary/10 text-primary">
+              <KeyRound className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="font-medium">Your account &amp; password</div>
+              <div className="text-sm text-muted-foreground">Change your sign-in password.</div>
+            </div>
+          </div>
+          <Link href="/account" className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90">
+            Change password
+          </Link>
+        </CardContent>
+      </Card>
+
       {/* Settings → About (required placement of the product/developer credit) */}
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
