@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockFlow Pro</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --card:#ffffff; --ink:#0f172a; --mut:#64748b; --line:#e2e8f0;
+    --indigo:#3730A3; --indigo-2:#312e81; --cyan:#0891B2; --red:#dc2626; --amber:#b45309;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b1020; --card:#141a2e; --ink:#e7ecf6; --mut:#8b96ad; --line:#26304a; --indigo:#818cf8; --indigo-2:#a5b4fc; }
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:
+       radial-gradient(1200px 600px at 20% -10%, rgba(55,48,163,.10), transparent 60%), var(--bg);
+       color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{width:100%;max-width:440px;background:var(--card);border:1px solid var(--line);border-radius:16px;
+        box-shadow:0 10px 40px rgba(15,23,42,.08);padding:36px 34px;text-align:center}
+  .logo{width:72px;height:72px;border-radius:18px;margin:0 auto 16px;display:block}
+  h1{font-size:1.35rem;font-weight:650;letter-spacing:-.01em}
+  .sub{color:var(--mut);font-size:.86rem;margin-top:4px}
+  .stage{margin-top:26px;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+  .spin{width:30px;height:30px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--indigo);animation:r 0.9s linear infinite}
+  @keyframes r{to{transform:rotate(360deg)}}
+  .status{font-size:.9rem;color:var(--mut)}
+  .err{color:var(--red);font-size:.85rem;background:rgba(220,38,38,.08);border-radius:8px;padding:8px 12px;display:none}
+  .warn{color:var(--amber);font-size:.85rem}
+  input{width:100%;height:44px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--ink);
+        padding:0 14px;font-size:.95rem;outline:none}
+  input:focus{border-color:var(--indigo);box-shadow:0 0 0 3px rgba(55,48,163,.15)}
+  button{height:44px;width:100%;border:0;border-radius:10px;background:var(--indigo);color:#fff;font-size:.95rem;
+         font-weight:600;cursor:pointer;transition:opacity .15s}
+  button:hover{opacity:.92} button:disabled{opacity:.55;cursor:default}
+  .ghost{background:transparent;color:var(--indigo);border:1px solid var(--line)}
+  .hidden{display:none !important}
+  label{display:block;text-align:left;font-size:.82rem;font-weight:600;margin:0 0 6px 2px}
+  .hint{font-size:.78rem;color:var(--mut);text-align:left;margin-top:6px}
+  .foot{margin-top:26px;padding-top:16px;border-top:1px solid var(--line);font-size:.74rem;color:var(--mut);line-height:1.7}
+  .foot a{color:var(--indigo);text-decoration:none}
+  .linkbtn{background:none;border:none;height:auto;width:auto;color:var(--mut);font-size:.78rem;cursor:pointer;text-decoration:underline;font-weight:500}
+</style>
+</head>
+<body>
+  <main class="card" role="main" aria-live="polite">
+    <img class="logo" src="icon.png" alt="StockFlow Pro logo">
+    <h1>StockFlow Pro</h1>
+    <p class="sub">Premium Inventory &amp; Project Management</p>
+
+    <!-- Stage 1: splash / checking -->
+    <div id="stage-loading" class="stage">
+      <div class="spin" aria-hidden="true"></div>
+      <div class="status" id="loading-status">Starting…</div>
+    </div>
+
+    <!-- Stage 2: first-run connect -->
+    <div id="stage-connect" class="stage hidden">
+      <form id="connect-form" style="width:100%" novalidate>
+        <label for="server">Company server address</label>
+        <input id="server" type="url" placeholder="https://stock.yourcompany.com" autocomplete="url" required>
+        <p class="hint">Your administrator provides this address (see the Admin Deployment Guide). It is remembered on this computer.</p>
+        <div class="err" id="connect-err" role="alert"></div>
+        <div style="margin-top:14px"><button id="connect-btn" type="submit">Connect</button></div>
+      </form>
+    </div>
+
+    <!-- Stage 3: offline / unreachable -->
+    <div id="stage-offline" class="stage hidden">
+      <div class="warn" id="offline-msg">You appear to be offline.</div>
+      <div class="status" id="retry-status">Retrying automatically…</div>
+      <button id="retry-btn" class="ghost" style="max-width:220px">Retry now</button>
+      <button id="change-btn" class="linkbtn" type="button">Use a different server</button>
+    </div>
+
+    <footer class="foot">
+      Developed by <strong>Muhammad Ali</strong> | Accounts &amp; Finance Expert | MBA (Finance)<br>
+      <a href="mailto:alim2840@gmail.com">alim2840@gmail.com</a> · Published by Mindtune Innovations · <span id="ver">v1.0.0</span>
+    </footer>
+  </main>
+
+<script>
+  const invoke = window.__TAURI__ && window.__TAURI__.core ? window.__TAURI__.core.invoke : async () => null;
+  const $ = (id) => document.getElementById(id);
+  const stages = ['stage-loading', 'stage-connect', 'stage-offline'];
+  function show(stage){ stages.forEach(s => $(s).classList.toggle('hidden', s !== stage)); }
+  let retryTimer = null;
+  let preconfigured = false;   // production builds: URL baked in, no server screen
+
+  invoke('get_app_version').then(v => { if (v) $('ver').textContent = 'v' + v; }).catch(()=>{});
+
+  // Reachability: opaque no-cors response or any HTTP answer counts as reachable.
+  async function reachable(url){
+    try{
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 6000);
+      await fetch(url + '/login', { mode: 'no-cors', cache: 'no-store', signal: ctl.signal });
+      clearTimeout(t);
+      return true;
+    }catch{ return false; }
+  }
+
+  async function boot(){
+    show('stage-loading');
+    $('loading-status').textContent = 'Checking connection…';
+    preconfigured = await invoke('is_preconfigured').catch(() => false) === true;
+    const server = await invoke('get_server_url').catch(() => null);
+    if(!server){
+      // Only possible in unconfigured developer builds — production builds
+      // always carry a baked-in URL, so end users never see this form.
+      show('stage-connect'); $('server').focus(); return;
+    }
+    if(!navigator.onLine){ offline('You appear to be offline. StockFlow Pro needs an internet connection.', server); return; }
+    $('loading-status').textContent = 'Connecting to StockFlow Pro…';
+    if(await reachable(server)){
+      $('loading-status').textContent = 'Connected — opening StockFlow Pro…';
+      window.location.replace(server + '/login');
+    }else{
+      offline('The StockFlow Pro server could not be reached. It may be temporarily unavailable.', server);
+    }
+  }
+
+  function offline(msg, server){
+    show('stage-offline');
+    // "Use a different server" is an advanced affordance for unconfigured
+    // developer builds only; production builds hide it entirely.
+    $('change-btn').classList.toggle('hidden', preconfigured);
+    $('offline-msg').textContent = msg;
+    clearInterval(retryTimer);
+    retryTimer = setInterval(async () => {
+      $('retry-status').textContent = 'Retrying automatically…';
+      if(navigator.onLine && await reachable(server)){ clearInterval(retryTimer); boot(); }
+      else { $('retry-status').textContent = 'Still unreachable — will retry again shortly.'; }
+    }, 5000);
+  }
+
+  $('retry-btn').addEventListener('click', boot);
+  $('change-btn').addEventListener('click', async () => {
+    clearInterval(retryTimer);
+    await invoke('clear_server_url').catch(()=>{});
+    show('stage-connect'); $('server').focus();
+  });
+  window.addEventListener('online', boot);
+
+  $('connect-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('connect-err'); err.style.display = 'none';
+    const btn = $('connect-btn'); btn.disabled = true; btn.textContent = 'Connecting…';
+    try{
+      const saved = await invoke('set_server_url', { url: $('server').value });
+      if(!(await reachable(saved))){
+        throw new Error('Saved, but the server did not respond. Check the address and your internet connection.');
+      }
+      window.location.replace(saved + '/login');
+    }catch(ex){
+      err.textContent = typeof ex === 'string' ? ex : (ex.message || 'Could not connect.');
+      err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Connect';
+    }
+  });
+
+  boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens. --primary is overridable at runtime from company_settings so
+   admins can rebrand. Palette: deep indigo primary, cyan secondary, emerald
+   success, amber warning, red error, slate neutrals. */
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 243 55% 41%;          /* deep indigo #3730A3 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 190 91% 36%;        /* cyan #0891B2 */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 94%;
+    --accent-foreground: 222 47% 11%;
+    --success: 152 69% 40%;
+    --warning: 38 92% 50%;
+    --destructive: 0 72% 51%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 243 55% 41%;
+    --radius: 0.6rem;
+  }
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 96%;
+    --card: 222 44% 11%;
+    --card-foreground: 210 40% 96%;
+    --primary: 239 84% 67%;          /* lighter indigo for dark */
+    --primary-foreground: 222 47% 11%;
+    --secondary: 189 94% 43%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 20%;
+    --accent-foreground: 210 40% 96%;
+    --success: 152 60% 45%;
+    --warning: 38 92% 55%;
+    --destructive: 0 72% 55%;
+    --border: 217 33% 22%;
+    --input: 217 33% 22%;
+    --ring: 239 84% 67%;
+  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground antialiased; }
+}
+
+/* Skeleton shimmer for loading states */
+@layer components {
+  .skeleton { @apply animate-pulse rounded-md bg-muted; }
+  .card-surface { @apply rounded-lg border bg-card shadow-sm; }
+}

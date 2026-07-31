@@ -1,0 +1,171 @@
+# =============================================================================
+# StockFlow Pro — Windows release pipeline
+# Produces: StockFlow-Pro-Setup-x64.exe (NSIS), StockFlow-Pro-x64.msi (WiX),
+#           StockFlow-Pro-Portable-x64.zip, SHA256SUMS.txt — as workflow
+#           artifacts AND as directly-downloadable GitHub Release assets.
+#
+# The production server URL is BAKED INTO the executable at compile time
+# (env STOCKFLOW_SERVER_URL). End users never see a server-address screen.
+# The build FAILS if the URL is missing or a placeholder — a placeholder
+# installer can never be produced.
+#
+# URL resolution order:
+#   1. "Run workflow" input `server_url`
+#   2. Repository variable STOCKFLOW_SERVER_URL (Settings → Secrets and
+#      variables → Actions → Variables)
+#   3. The `production-server-url.txt` file committed at the repo root
+# =============================================================================
+name: Windows release
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: 'Production server URL (e.g. https://stockflow-pro-xxxx.vercel.app)'
+        required: false
+        type: string
+  push:
+    branches: ['main']
+    tags: ['v*']
+
+concurrency:
+  group: windows-release
+  cancel-in-progress: false
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve production server URL
+        id: cfg
+        shell: pwsh
+        run: |
+          $url = '${{ github.event.inputs.server_url }}'
+          if (-not $url) { $url = '${{ vars.STOCKFLOW_SERVER_URL }}' }
+          if (-not $url -and (Test-Path production-server-url.txt)) {
+            $url = (Get-Content production-server-url.txt -Raw).Trim()
+          }
+          if (-not $url -or $url -match 'yourcompany|localhost|example|placeholder|TO_BE_SET') {
+            Write-Error "STOCKFLOW_SERVER_URL is missing or a placeholder ('$url'). Refusing to build an installer that cannot connect. Set the workflow input, the repo variable, or commit production-server-url.txt with the real https URL."
+            exit 1
+          }
+          if ($url -notmatch '^https://') {
+            Write-Error "Production server URL must be https:// (got '$url')."
+            exit 1
+          }
+          "SERVER_URL=$($url.TrimEnd('/'))" >> $env:GITHUB_OUTPUT
+          Write-Host "Building installer pinned to: $url"
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with: { workspaces: src-tauri }
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      # Icons are committed as a text-safe base64 source and generated here.
+      - name: Generate application icons
+        shell: pwsh
+        run: |
+          node -e "const fs=require('fs');fs.writeFileSync('app-icon.png',Buffer.from(fs.readFileSync('assets/app-icon.png.b64','utf8'),'base64'))"
+          npx tauri icon app-icon.png -o src-tauri/icons
+          Copy-Item src-tauri/icons/128x128@2x.png desktop-shell/icon.png -Force
+
+      - name: Build Tauri bundles (NSIS .exe + WiX .msi)
+        env:
+          # Baked into the binary — the app opens straight at this server's login.
+          STOCKFLOW_SERVER_URL: ${{ steps.cfg.outputs.SERVER_URL }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          # --- Code signing (optional; see docs/INSTALLATION-GUIDE.md §6) ----
+          # WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          # WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: npx tauri build
+
+      - name: Assemble release folder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-out | Out-Null
+          $setup = Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          Copy-Item $setup.FullName release-out/StockFlow-Pro-Setup-x64.exe
+          $msi = Get-ChildItem src-tauri/target/release/bundle/msi/*.msi | Select-Object -First 1
+          Copy-Item $msi.FullName release-out/StockFlow-Pro-x64.msi
+          New-Item -ItemType Directory -Force -Path portable | Out-Null
+          Copy-Item src-tauri/target/release/stockflow-pro.exe "portable/StockFlow Pro.exe"
+          @"
+          StockFlow Pro (portable) - v1.0.0
+          Publisher: Mindtune Innovations
+          Developed by Muhammad Ali - Accounts & Finance Expert, MBA (Finance) - alim2840@gmail.com
+          Connects automatically to: ${{ steps.cfg.outputs.SERVER_URL }}
+
+          Run "StockFlow Pro.exe". No installation required.
+          Requires the Microsoft WebView2 Runtime (preinstalled on Windows 11;
+          on older Windows 10 use the Setup EXE once - it installs WebView2
+          automatically).
+          "@ | Out-File portable/README.txt -Encoding utf8
+          Compress-Archive -Path portable/* -DestinationPath release-out/StockFlow-Pro-Portable-x64.zip
+          Copy-Item release/LICENSE.txt        release-out/
+          Copy-Item release/RELEASE-NOTES.md   release-out/
+          Copy-Item docs/INSTALLATION-GUIDE.md release-out/
+          Copy-Item docs/ADMIN-DEPLOYMENT-GUIDE.md release-out/
+          Copy-Item docs/USER-GUIDE.md         release-out/
+          Get-ChildItem release-out -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
+          } | Out-File release-out/SHA256SUMS.txt -Encoding utf8
+          Get-Content release-out/SHA256SUMS.txt
+
+      - name: Verify installer metadata (product, publisher, developer, version)
+        shell: pwsh
+        run: |
+          $v = (Get-Item release-out/StockFlow-Pro-Setup-x64.exe).VersionInfo
+          Write-Host "ProductName:    $($v.ProductName)"
+          Write-Host "CompanyName:    $($v.CompanyName)"
+          Write-Host "ProductVersion: $($v.ProductVersion)"
+          Write-Host "Copyright:      $($v.LegalCopyright)"
+          if ($v.LegalCopyright -notmatch 'Muhammad Ali') { throw 'Developer attribution missing from installer metadata' }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StockFlow-Pro-Windows
+          path: release-out/*
+
+      # Publish directly-downloadable assets on every successful build.
+      - name: Publish GitHub Release v1.0.0
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: StockFlow Pro 1.0.0
+          body_path: release/RELEASE-NOTES.md
+          files: |
+            release-out/StockFlow-Pro-Setup-x64.exe
+            release-out/StockFlow-Pro-x64.msi
+            release-out/StockFlow-Pro-Portable-x64.zip
+            release-out/SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Visual proof: screenshots of the login page (developer footer) and About.
+  screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - name: Build & start web app (placeholder env — public pages only)
+        run: |
+          export NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
+          export NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder-anon-key
+          npm run build
+          npm run start & sleep 6
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/capture-screens.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: screenshots/*

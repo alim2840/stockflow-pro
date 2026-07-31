@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the connect/splash window (bundled assets only). The remote web app never receives IPC access.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default"
+  ]
+}

@@ -1,0 +1,37 @@
+STOCKFLOW PRO — END USER LICENSE AGREEMENT
+===========================================
+
+Product:    StockFlow Pro — Premium Inventory and Project Management System
+Publisher:  Mindtune Innovations
+Developer:  Muhammad Ali — Accounts & Finance Expert, MBA (Finance)
+Support:    alim2840@gmail.com
+Version:    1.0.0
+
+1. GRANT OF LICENSE
+   This software is licensed to the purchasing organisation ("the Company")
+   for internal business use on any number of Company devices. It is not
+   sold. All rights not expressly granted are reserved by the publisher.
+
+2. RESTRICTIONS
+   The Company may not resell, sublicense, or redistribute the software
+   outside the organisation without written permission from the publisher.
+   The developer attribution displayed in the application (login footer and
+   About screen) is a condition of this license and must not be removed or
+   altered.
+
+3. DATA
+   Business data is stored in the Company's own cloud database (Supabase /
+   PostgreSQL) under the Company's control. The publisher and developer do
+   not receive or process the Company's business data through this software.
+
+4. WARRANTY DISCLAIMER
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED. THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE
+   SOFTWARE REMAINS WITH THE COMPANY.
+
+5. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL THE PUBLISHER OR DEVELOPER BE LIABLE FOR ANY INDIRECT,
+   INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OF
+   OR INABILITY TO USE THE SOFTWARE.
+
+© 2026 Mindtune Innovations. All rights reserved.
