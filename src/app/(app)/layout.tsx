@@ -35,9 +35,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex h-screen flex-1 flex-col overflow-hidden">
         <header className="flex h-14 items-center justify-between border-b bg-card px-6">
           <div className="text-sm text-muted-foreground">Welcome{profile?.full_name ? `, ${profile.full_name}` : ''}</div>
-          <form action="/auth/signout" method="post">
-            <button className="text-sm text-muted-foreground hover:text-foreground">Sign out</button>
-          </form>
+          <div className="flex items-center gap-4">
+            <a href="/account" className="text-sm text-muted-foreground hover:text-foreground">My account</a>
+            <form action="/auth/signout" method="post">
+              <button className="text-sm text-muted-foreground hover:text-foreground">Sign out</button>
+            </form>
+          </div>
         </header>
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
